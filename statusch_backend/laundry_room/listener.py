@@ -1,3 +1,4 @@
+import logging
 import socket
 from struct import unpack
 from threading import Thread
@@ -7,6 +8,8 @@ from time import monotonic
 _HISTORY_LEN_SEC = 5
 _POWER_THRESHOLD = 200
 _N_FLOORS = 19
+
+logger = logging.getLogger(__name__)
 
 
 class _Default(object):
@@ -115,14 +118,14 @@ class Listener(object):
                     self._update_db(floor_num, type_id, status)
 
             except socket.timeout:
-                print('Timeout...')
+                logger.warning('Timeout...')
 
     def start(self):
-        print('Start listener thread')
+        logger.info('Start listener thread')
         self._thread.start()
 
     def stop(self):
-        print('THREAD STOP!')
+        logger.info('THREAD STOP!')
         self._stop_flag = True
         self._thread.join()
-        print('JOINED')
+        logger.info('STOPPED!')
