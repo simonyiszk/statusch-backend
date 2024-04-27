@@ -4,5 +4,5 @@ from . import views
 
 
 urlpatterns = [
-    path('printer', views.PrintersByUsers.as_view()),
+    path('', views.PrintersByUsers.as_view()),
 ]

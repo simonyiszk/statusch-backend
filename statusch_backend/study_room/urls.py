@@ -4,7 +4,7 @@ from .apps import StudyRoomConfig
 from . import views
 
 router = DefaultRouter()
-router.register(r'study-room', views.FloorViewSet)
+router.register('', views.FloorViewSet)
 
 app_name = StudyRoomConfig.name
 urlpatterns = router.urls
