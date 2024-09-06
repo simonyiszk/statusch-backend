@@ -1,4 +1,6 @@
 import logging
+import time
+
 import influxdb_client
 from threading import Thread
 from collections import namedtuple
@@ -63,6 +65,8 @@ class Listener(object):
                 kind_of = 'WM' if values['_field'] == 'wm_power' else 'DR' if values['_field'] == 'drier_power' else None
                 self._update_db(floor_num, kind_of, value > _POWER_THRESHOLD)
                 logger.debug('update_db: %s %s %s', floor_num, kind_of, value > _POWER_THRESHOLD)
+            
+            time.sleep(10)
 
     def start(self):
         logger.info('Start listener thread')
