@@ -1,60 +1,14 @@
 import logging
-import socket
-from struct import unpack
+import influxdb_client
 from threading import Thread
 from collections import namedtuple
-from time import monotonic
+from django.conf import settings
 
 _HISTORY_LEN_SEC = 5
-_POWER_THRESHOLD = 200
+_POWER_THRESHOLD = 30
 _N_FLOORS = 19
 
 logger = logging.getLogger(__name__)
-
-
-class _Default(object):
-    def __repr__(self):
-        return '(' + ', '.join(
-            str(getattr(self, key)) for key in self.__dict__ if not key.startswith('_')) + ')'
-
-    def __eq__(self, other):
-        try:
-            return all(getattr(self, key) == getattr(other, key)
-                       for key in self.__dict__ if not key.startswith('_'))
-        except AttributeError:
-            return False
-
-
-_Value = namedtuple('Value', 'time value')
-
-
-class _History(_Default):
-    def __init__(self):
-        self._sum = 0
-        self._values = []
-
-    def _remove_old_values(self, cur_time=monotonic()):
-        while self._values and cur_time - self._values[0].time > _HISTORY_LEN_SEC:
-            self._sum -= self._values.pop(0).value
-
-    def add(self, value):
-        cur_time = monotonic()
-        self._remove_old_values(cur_time)
-        self._values.append(_Value(cur_time, value))
-        self._sum += value
-
-    def avg(self):
-        self._remove_old_values()
-        n_values = len(self._values)
-        if n_values == 0:
-            return 0
-        return self._sum / n_values
-
-
-class _Floor(_Default):
-    def __init__(self):
-        self.wm = _History()
-        self.drier = _History()
 
 
 class Listener(object):
@@ -86,39 +40,29 @@ class Listener(object):
                 machine_obj.status = status
                 machine_obj.save()
 
-    def _check_threshold(self, old_avg, avg):
-        if avg < _POWER_THRESHOLD and old_avg >= _POWER_THRESHOLD:
-            # print(msg.format('off'))
-            return 0  # off
-        elif avg >= _POWER_THRESHOLD and old_avg < _POWER_THRESHOLD:
-            # print(msg.format('on'))
-            return 1  # on
-        return None
-
     def _thread_listener_loop(self):
-        floors = [_Floor() for _ in range(_N_FLOORS)]
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.settimeout(1)
-        sock.bind(('', 1234))
-
         while not self._stop_flag:
-            try:
-                data, (address, port) = sock.recvfrom(68)
-                floor_num = address.split('.')[-1]  # last octett of IP is the level number
-                drier_power, wm_power = unpack('>HH', data[4:8])
+            influxdb_config = settings.INFLUXDB
+            inf = influxdb_client.InfluxDBClient(
+                url=influxdb_config['url'],
+                token=influxdb_config['token'],
+                org=influxdb_config['org'])
+            query_api = inf.query_api()
+            flux_tables = query_api.query(f'''
+                from(bucket: "{influxdb_config['bucket']}")
+                  |> range(start: -10m)
+                  |> filter(fn: (r) => r["_measurement"] == "meres")
+                  |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
+                  |> yield(name: "mean")
+            ''')
 
-                floor = floors[int(floor_num)]
-                wm = floor.wm
-                drier = floor.drier
-                for machine, power, type_id in [(wm, wm_power, 'WM'), (drier, drier_power, 'DR')]:
-                    old_avg = machine.avg()
-                    machine.add(power)
-                    status = self._check_threshold(old_avg, machine.avg())
-                    self._update_db(floor_num, type_id, status)
-
-            except socket.timeout:
-                logger.warning('Timeout...')
+            for table in flux_tables:
+                values = table.records[-1].values
+                floor_num = int(values['level'])
+                value = values['_value']
+                kind_of = 'WM' if values['_field'] == 'wm_power' else 'DR' if values['_field'] == 'drier_power' else None
+                self._update_db(floor_num, kind_of, value > _POWER_THRESHOLD)
+                logger.debug('update_db: %s %s %s', floor_num, kind_of, value > _POWER_THRESHOLD)
 
     def start(self):
         logger.info('Start listener thread')

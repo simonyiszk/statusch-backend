@@ -135,3 +135,10 @@ USE_TZ = True
 STATIC_URL = '/django-static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+
+INFLUXDB = {
+    'url': env.str('INFLUXDB_URL'),
+    'org': env.str('INFLUXDB_ORG'),
+    'bucket': env.str('INFLUXDB_BUCKET'),
+    'token': env.str('INFLUXDB_TOKEN')
+}
