@@ -1,9 +1,7 @@
 import os
 from .local import *
 
-ALLOWED_HOSTS = ["*"]
-
-DEBUG = False
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 
 DATABASES = {
     'default': {

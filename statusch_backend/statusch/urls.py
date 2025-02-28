@@ -5,7 +5,7 @@ from django.contrib import admin
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/v1/laundry_room', include('laundry_room.urls')),
-    path('api/v1/study_room', include('study_room.urls')),
-    path('api/v1/printer', include('printer.urls')),
+    path('api/v1/laundry-room/', include('laundry_room.urls')),
+    path('api/v1/study_room/', include('study_room.urls')),
+    path('api/v1/printer/', include('printer.urls')),
 ]
