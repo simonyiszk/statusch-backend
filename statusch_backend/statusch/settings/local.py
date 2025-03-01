@@ -49,9 +49,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'solo',
     'common',
-    'study_room',
     'laundry_room',
-    'printer',
 ]
 
 MIDDLEWARE = [
