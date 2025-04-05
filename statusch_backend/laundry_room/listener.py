@@ -10,6 +10,11 @@ _HISTORY_LEN_SEC = 5
 _POWER_THRESHOLD = 30
 _N_FLOORS = 19
 
+FLOOR_HAS_MACHINE = {
+    "WM": {3, 5, 6, 7, 9, 10, 11, 13, 15, 16, 17},
+    "DR": {3, 5, 7, 9, 11, 13, 15, 17},
+}
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,12 +27,16 @@ class Listener(object):
     def _init_db(self):
         import itertools
         for floor, type_id in itertools.product(range(0, _N_FLOORS), ['WM', 'DR']):
-            self._update_db(floor, type_id, 0)
+            self._update_db(floor, type_id, 2)
 
     def _update_db(self, floor_id, machine, status):
         from laundry_room import models
         from common.models import Floor
         from django.utils import timezone
+
+        # Ignore non-existand machines
+        if not floor_id in FLOOR_HAS_MACHINE.get(machine, {}):
+            return
 
         floor_obj, created = Floor.objects.get_or_create(id=floor_id)
         if created:
